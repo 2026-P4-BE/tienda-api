@@ -3,7 +3,7 @@
 Guion para usar de pie frente al curso. Qué es el repositorio y cómo está construido: [README.md](README.md).
 Repositorio: <https://github.com/DaronArg/tienda-api> · Duración total: 45 a 60 minutos.
 
-> **Estado de verificación (leer una vez).** Los scripts y los parches de cada demo se probaron en local (los tres fallos se reproducen con el mensaje exacto indicado, `verify` tarda unos 30 s, la imagen arranca y responde `/actuator/health` y `/api/version`). Los workflows pasaron `actionlint`, pero **todavía no se ejecutaron en GitHub**: la organización tiene deshabilitado GitHub Actions para este repositorio y no admite *required reviewers* en repos privados (ver [Pendiente antes de la primera clase](#pendiente-antes-de-la-primera-clase)). Los tiempos de GitHub y lo que dice "qué deberían ver" son **estimados**, no observados. Hacer una pasada completa antes de la clase y corregir este documento con lo real.
+> **Verificado en GitHub (6 de octubre de 2026).** Cada demo se ejecutó de punta a punta tres veces (y `reset.sh` entre una y otra); los tiempos y resultados de este documento son los observados. **Limitación observada:** en este repositorio GitHub **no inició** ningún workflow por `push`, `pull_request` ni tag (0 runs de esos eventos, aun con Actions habilitado y sin incidentes en githubstatus). Solo funciona `workflow_dispatch`. Por eso `scripts/demo.sh` espera unos segundos y, si no aparece el run, lo inicia con `workflow_dispatch` (`gh workflow run <workflow> --ref <rama o tag>`) y lo avisa con `[WARN]`. El pipeline que se ve es idéntico; lo único distinto es el disparador (columna *Event* de Actions: `workflow_dispatch` en lugar de `push`/`pull_request`). Si GitHub vuelve a disparar solo, el script no hace nada extra. Conviene explicarlo a los alumnos como "el disparador manual del mismo workflow".
 
 ## Antes de la clase
 
@@ -14,7 +14,7 @@ scripts/doctor.sh
 Todo debe estar en `[ OK ]`. Si algo falla, el script imprime el comando que lo arregla.
 
 - [ ] `gh` con sesión iniciada y scope `workflow`.
-- [ ] Repositorio con `main` y `develop` en GitHub y **Actions habilitado** para el repo. Es **privado**: CodeQL se omite (ver [Límites](#límites-honestos)).
+- [ ] Repositorio **público** con `main` y `develop` en GitHub y Actions habilitado (público: CodeQL y los required reviewers lo necesitan; ver [Límites](#límites-honestos)).
 - [ ] Entornos `staging` y `production`; `production` con un reviewer (vos).
 - [ ] Árbol local limpio y en `main`; sin ramas, PR, tags ni releases de demos anteriores (`scripts/reset.sh` los borra).
 - [ ] Último CI en `main` en verde: es el **plan B** si Internet o GitHub fallan.
@@ -24,23 +24,23 @@ Un solo comando para empezar de cero en cualquier momento: `scripts/reset.sh`.
 
 ## Orden recomendado
 
-| # | Demo | Comando | Tiempo (estimado) |
+| # | Demo | Comando | Tiempo (medido) |
 |---|------|---------|-------------------|
-| 1 | Pipeline verde con Git Flow | `scripts/demo.sh green-pr` | 6 a 8 min |
-| 2 | Test roto: falla temprano | `scripts/demo.sh break-test` | 3 min |
-| 3 | Cobertura bajo 80% | `scripts/demo.sh drop-coverage` | 3 min |
-| 4 | Violación de PMD | `scripts/demo.sh pmd-violation` | 3 min |
-| 5 | Release + aprobación manual | `scripts/demo.sh release` | 8 a 10 min |
-| 6 | Tag que no coincide con el pom | `scripts/demo.sh release 1.0.1` | 2 min |
+| 1 | Pipeline verde con Git Flow | `scripts/demo.sh green-pr` | 3 a 5 min |
+| 2 | Test roto: falla temprano | `scripts/demo.sh break-test` | 1 a 2 min |
+| 3 | Cobertura bajo 80% | `scripts/demo.sh drop-coverage` | 1 a 2 min |
+| 4 | Violación de PMD | `scripts/demo.sh pmd-violation` | 1 a 2 min |
+| 5 | Release + aprobación manual | `scripts/demo.sh release` | 6 a 8 min (con explicación) |
+| 6 | Tag que no coincide con el pom | `scripts/demo.sh release 1.0.1` | 1 min |
 
-Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a 4 min (`build-test` ~2, `package` ~2), `CodeQL` 3 a 5 min, `Release` ~4 min más ~1 min por cada deploy. Todos quedan bajo el objetivo de 10 minutos del material. Los demos 2, 3 y 4 fallan en el primer job, así que dan feedback en 1 a 2 minutos.
+Duración de cada workflow en GitHub (medida en 3 pasadas): `CI` verde **98 a 112 s** (`build-test` 32 s, `package` 58 s); `CI` rojo en `Verify` **19 a 42 s**; `CodeQL` **93 a 104 s**; `Release` **101 a 106 s** (job `release`) + **13 a 24 s** (staging) + **15 a 19 s** (producción, después de aprobar), unos 2 min 40 s en total sin contar la espera de la aprobación. Todo queda muy por debajo del objetivo de 10 minutos del material. Los demos 2, 3 y 4 fallan en el primer job, así que dan feedback en menos de un minuto.
 
 ---
 
 ## Demo 1: pipeline en verde con Git Flow
 
 **Objetivo.** Ver las etapas 1 a 5 funcionando y cómo se integra un cambio por Pull Request.
-**Tiempo.** 6 a 8 min.
+**Tiempo.** 3 a 5 min.
 
 **Qué explicar antes**
 - CI/CD es la cadena de valor desde el commit hasta el usuario. Hoy vemos las primeras etapas: checkout, build, tests, análisis estático y empaquetado.
@@ -50,14 +50,14 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 
 **Pasos**
 1. `scripts/demo.sh green-pr` crea `feature/demo-green-pr` desde `develop`, empuja un cambio de documentación y abre un PR hacia `develop`. Abrir la URL que imprime.
-2. En el PR, pestaña **Checks**: aparece `CI`. El workflow `CodeQL` figura como **Skipped** porque el repositorio es privado (ver Límites).
+2. En el PR, pestaña **Checks** (puede tardar unos segundos en mostrar los runs iniciados por `demo.sh`): aparecen `CI` y `CodeQL`. Si no aparecen, ir a la pestaña **Actions**.
 3. Pestaña **Actions** > `CI`: abrir el run. Mostrar los jobs `Build, test and quality gates` y, después, `Package and smoke-test Docker image`.
 4. En el run, **Summary**: la tabla de tests y cobertura. Al final, **Artifacts**: `reports-<n>-<intento>` (Surefire, JaCoCo, PMD).
-5. (Solo si el repo es público) **Security > Code scanning**: resultado de CodeQL.
+5. **Security > Code scanning**: resultado de CodeQL (sin alertas). El run de CodeQL dura unos 100 s.
 
-**Qué deberían ver** (esperado): dos runs de `CI` para la misma rama (uno por `push` y otro por `pull_request`), `CodeQL` omitido (repo privado), summary con `Tests run: 12 (failures: 0, errors: 0)` y `Line coverage: 96.1%`.
+**Qué deberían ver** (observado): `CI` verde en unos 100 s con los dos jobs (`build-test` 32 s, `package` 58 s) y `CodeQL` (`Analyze Java`) verde en unos 100 s. El run de CI tiene un artefacto `reports-<n>-1`. El summary lista `Tests run: 12 (failures: 0, errors: 0)` y `Line coverage: 96.1%` (mismo script comprobado en local). La columna *Event* muestra `workflow_dispatch` (ver nota inicial).
 
-**Qué remarcar.** El push y el PR disparan el workflow cada uno; es esperado (el material de la cátedra usa `on: [push, pull_request]`). El job `package` solo arranca si `build-test` pasó (`needs`).
+**Qué remarcar.** El job `package` solo arranca si `build-test` pasó (`needs`). Con disparo automático real, un push a una rama con PR abierto corre `CI` dos veces (`push` y `pull_request`), como en el ejemplo del material de la cátedra; con el disparo manual de `demo.sh` aparece un solo run.
 
 **Preguntas**
 - *¿Por qué `package` espera a `build-test`?* Para no gastar tiempo ni minutos empaquetando código que no pasó las pruebas (fallar temprano).
@@ -70,7 +70,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 ## Demo 2: un test roto detiene el pipeline
 
 **Objetivo.** Mostrar el principio de fallar temprano y el feedback inmediato.
-**Tiempo.** 3 min.
+**Tiempo.** 1 a 2 min (el run falla a los 20 a 40 s).
 
 **Qué explicar antes**
 - La etapa de testing es la primera barrera: tests unitarios (Mockito) e integración (`@SpringBootTest` con H2).
@@ -84,7 +84,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 4. Volver al run: el job `Package and smoke-test Docker image` figura **Skipped**.
 5. Abrir **Artifacts**: el reporte de Surefire está igual.
 
-**Qué deberían ver** (reproducido en local): `Tests run: 6, Failures: 1` y `expected: 6` / `but was: 5` en `ProductServiceTest`; `BUILD FAILURE`. En GitHub: el segundo job omitido.
+**Qué deberían ver** (observado en local y en GitHub): `Tests run: 6, Failures: 1` y `expected: 6` / `but was: 5` en `ProductServiceTest`; `BUILD FAILURE`. En GitHub: el segundo job omitido.
 
 **Qué remarcar.** El rojo está en el step de tests, no en un paso posterior. Nadie construyó una imagen de código roto. El PR no se puede mergear (o no debería) con el check en rojo.
 
@@ -99,7 +99,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 ## Demo 3: la cobertura bajo 80% bloquea el build
 
 **Objetivo.** Entender un quality gate: pasar los tests no alcanza.
-**Tiempo.** 3 min.
+**Tiempo.** 1 a 2 min (el run falla a los 20 s).
 
 **Qué explicar antes**
 - Cobertura: líneas, ramas y métodos son métricas distintas; acá el gate mide **líneas** (>= 80%) con JaCoCo.
@@ -112,7 +112,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 3. Buscar la línea de JaCoCo y mostrar el summary del run (el porcentaje cae).
 4. Abrir el artefacto y el reporte JaCoCo (`index.html`): las clases sin cubrir.
 
-**Qué deberían ver** (reproducido en local): todos los tests restantes pasan (`Tests run: 7`), y luego
+**Qué deberían ver** (observado en local y en GitHub): todos los tests restantes pasan (`Tests run: 7`), y luego
 `Rule violated for bundle tienda-api: lines covered ratio is 0.66, but expected minimum is 0.80` y `BUILD FAILURE`.
 
 **Qué remarcar.** Ningún test falló; falló la **política**. Si alguien borra tests para "arreglar" un rojo, el gate lo detecta.
@@ -128,19 +128,19 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 ## Demo 4: análisis estático con PMD
 
 **Objetivo.** Diferenciar tests, cobertura y análisis estático (etapa 4).
-**Tiempo.** 3 min.
+**Tiempo.** 1 a 2 min (el run falla a los 30 s).
 
 **Qué explicar antes**
 - El análisis estático (SAST) examina el código **sin ejecutarlo**; puede bloquear el build.
 - Herramientas del material: SonarQube, CodeQL, OWASP Dependency Check, PMD / estilo de código.
-- Acá hay dos: **PMD** (estilo y malas prácticas, dentro de `verify`, siempre activo) y **CodeQL** (vulnerabilidades, workflow aparte). CodeQL solo corre si el repositorio es público; en este repo privado PMD es el análisis estático en acción.
+- Acá hay dos: **PMD** (estilo y malas prácticas, dentro de `verify`) y **CodeQL** (vulnerabilidades, workflow aparte; corre porque el repositorio es público, y se omite solo si alguien lo vuelve privado).
 
 **Pasos**
 1. `scripts/demo.sh pmd-violation` agrega `System.out.println("listing");` en `ProductService.findAll()` y abre el PR.
 2. PR > **Checks** > `CI` en rojo; log del step `Verify`: buscar `PMD Failure`.
 3. Abrir `config/pmd-ruleset.xml` (reglas explícitas) y el reporte `pmd.html` del artefacto.
 
-**Qué deberían ver** (reproducido en local): tests en verde, cobertura bien y
+**Qué deberían ver** (observado en local y en GitHub): tests en verde, cobertura bien y
 `PMD Failure: ar.edu.utn.frc.tienda.product.ProductService:16 Rule:SystemPrintln Priority:2 Usage of System.out/err.`
 
 **Qué remarcar.** Tests y cobertura pasan y aun así el código no está listo. Cada herramienta ve algo distinto.
@@ -156,7 +156,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 ## Demo 5: release, registro de imágenes y aprobación manual
 
 **Objetivo.** Etapas 6 y 7: un tag produce un artefacto versionado, y una persona decide producción.
-**Tiempo.** 8 a 10 min.
+**Tiempo.** 6 a 8 min (el pipeline completo dura unos 3 min más la espera de la aprobación).
 
 **Qué explicar antes**
 - Release: el artefacto se publica en un registro (acá GitHub Container Registry) con un tag de Git `v1.0.0` y notas de cambios, **solo si las etapas anteriores pasaron**.
@@ -180,7 +180,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 7. Opcional, para mostrar el rechazo: repetir con `-f state=rejected`. El job de producción termina en rojo y nada se despliega.
 8. **Settings > Environments** o la pestaña de entornos: historial de despliegues de `staging` y `production`.
 
-**Qué deberían ver** (esperado): el run con tres jobs encadenados; el segundo en verde sin intervención; el tercero con el candado amarillo hasta aprobar. El Release con `tienda-api-1.0.0.jar`.
+**Qué deberían ver** (observado): el run `Release` con tres jobs encadenados. `Verify, publish image and create GitHub Release` tarda unos 105 s y deja el Release `v1.0.0` con el asset `tienda-api-1.0.0.jar` (las notas automáticas solo traen el enlace *Full Changelog* porque en este repositorio no hay PRs mergeados: para que muestren cambios hay que mergear PRs antes del tag). `Deploy to staging (simulated)` arranca solo (13 a 24 s) y descarga la imagen con `GITHUB_TOKEN`. `Deploy to production` queda en **Waiting** hasta aprobar y tarda 15 a 19 s después. Al rechazar, ese job termina en **Failure** y el run en rojo.
 
 **Qué remarcar.** La aprobación no está en el YAML: son los **Required reviewers** del entorno `production`. El pipeline es el mismo hasta ese punto; solo cambia quién aprieta el botón.
 
@@ -196,7 +196,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 ## Demo 6: un tag que no coincide con la versión del pom
 
 **Objetivo.** Un tag nunca debe publicar un artefacto con otro número.
-**Tiempo.** 2 min.
+**Tiempo.** 1 min (falla a los 20 s).
 
 **Qué explicar antes**
 - El número de versión vive en un solo lugar (`pom.xml`) y el tag debe coincidir: es trazabilidad.
@@ -207,7 +207,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 2. **Actions > Release**: el job falla en el step `Check that the Git tag matches the pom.xml version`.
 3. Abrir el log y la anotación roja.
 
-**Qué deberían ver** (esperado): `Git tag is 'v1.0.1' but pom.xml version is '1.0.0'. Update the pom.xml version (or tag the right commit) and try again.` No hay Release, no hay imagen, los deploys no corren.
+**Qué deberían ver** (observado): el job falla en 20 s en el step `Check that the Git tag matches the pom.xml version` con `Git tag is 'v1.0.1' but pom.xml version is '1.0.0'. Update the pom.xml version (or tag the right commit) and try again.` No hay Release, no hay imagen, los dos deploys figuran **Skipped**.
 
 **Qué remarcar.** Falla en el primer step útil, antes de compilar y de publicar nada.
 
@@ -283,20 +283,15 @@ Solo toca lo que reconoce como suyo (ramas con esos nombres, PR con título `[DE
 ## Repetir la clase
 
 Persiste a propósito: el **historial de runs** (sirve de plan B; `--runs` lo borra) y las **versiones de la imagen en GHCR** (borrarlas requiere el scope `delete:packages`, que el token no tiene; se pueden borrar a mano en Packages > Package settings).
-Repetir `v1.0.0` es posible: el tag y el Release se borran con el reset y el nuevo push de la imagen `:1.0.0` y `:latest` sobreescribe las etiquetas existentes (esperado, no verificado todavía).
-Plan B: dejar un run de `Release` exitoso en el historial y anotar acá su URL: _pendiente (se completa tras la primera ejecución real)_.
+
+Repetir `v1.0.0` funciona (verificado tres veces seguidas): el reset borra el tag y el Release, el nuevo release sobreescribe las etiquetas `:1.0.0` y `:latest` de la imagen, y los deploys descargan la imagen nueva.
+
+**Plan B** (run de `Release` completo, con staging y producción aprobada): <https://github.com/DaronArg/tienda-api/actions/runs/37479599931>. Los runs de CI y CodeQL de las demos quedan en la pestaña Actions con su rama (`demo/break-test`, etc.); si Internet o GitHub fallan en clase se pueden abrir ahí.
 
 ## Límites honestos
 
 - Los deploys son **simulaciones**: la imagen corre dentro del runner y se elimina. No hay servidor ni clúster.
-- **CodeQL (SAST) solo corre si el repositorio es público** (o con el add-on pago Code Security). En este repo privado el job se omite y PMD cubre el análisis estático. Para mostrarlo en vivo: `gh repo edit --visibility public --accept-visibility-change-consequences`.
-- Los *required reviewers* de `production` dependen del plan de la organización: en esta organización GitHub rechazó crearlos en un repo privado (HTTP 422, "billing plan"). Sin reviewers, `deploy-production` corre sin esperar y el demo es Continuous Deployment, no Delivery.
-- La primera vez que se publica la imagen el paquete es **privado**. Los jobs de deploy lo leen con `GITHUB_TOKEN` (permiso `packages: read`); para hacer `docker pull` desde tu máquina hay que cambiar su visibilidad.
-- El push y el PR disparan `CI` dos veces; es esperado.
-
-## Pendiente antes de la primera clase
-
-1. Un administrador de la organización `DaronArg` debe habilitar GitHub Actions para el repositorio `tienda-api` (Organization settings > Actions > General > Policies). Hoy `gh api repos/{owner}/{repo}/actions/permissions` devuelve `enabled: false` y la API responde `Actions is disabled on this repository by the organization`; no hay runs.
-2. Resolver los *required reviewers*: `PUT .../environments/production` con reviewers devuelve HTTP 422 ("billing plan"). Opciones: revisar el plan de facturación de la organización, o hacer público el repo (`gh repo edit --visibility public --accept-visibility-change-consequences`), lo que además activa CodeQL.
-3. `scripts/setup-github.sh` (idempotente: vuelve a configurar entornos y reviewer) y `scripts/doctor.sh`.
-4. Correr las demos 1 a 6 una vez, `scripts/reset.sh`, y reemplazar en este documento los tiempos estimados por los medidos y la URL del run de plan B.
+- **CodeQL y los required reviewers dependen de que el repositorio sea público** (o de un plan pago). Si alguien lo vuelve privado: el job de CodeQL se omite solo (`if: github.event.repository.private == false`) y PMD queda como único análisis estático; y `production` deja de pedir aprobación si el plan no admite reviewers.
+- Los workflows **no se inician solos** por push, PR ni tag en este repositorio (ver nota inicial); `demo.sh` los inicia con `workflow_dispatch`. Los tres workflows aceptan ese disparo manual: `gh workflow run ci.yml --ref <rama>`, `gh workflow run codeql.yml --ref <rama>` y `gh workflow run release.yml --ref v1.0.0` (la referencia debe ser un tag existente).
+- La imagen queda en `ghcr.io/daronarg/tienda-api`. Los jobs de deploy la descargan con `GITHUB_TOKEN` (verificado). Para `docker pull` desde tu máquina hay que revisar la visibilidad del paquete en Packages > Package settings.
+- Las notas del Release dependen de los PRs mergeados entre tags; sin PRs solo muestran el enlace *Full Changelog*.

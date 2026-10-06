@@ -37,9 +37,9 @@ Los scripts corren en Git Bash (Windows), Linux y macOS; necesitan `git` y `gh` 
 
 | Workflow | Disparador | Jobs | Permisos |
 |----------|-----------|------|----------|
-| `ci.yml` | push a `main`, `develop`, `feature/**`, `release/**`, `hotfix/**`; PR hacia `main` o `develop` | `build-test` > `package` | `contents: read` |
-| `codeql.yml` | PR hacia `main`/`develop`, push a `main`, lunes 06:00 UTC | `analyze` | `security-events: write`, `actions: read`, `contents: read` |
-| `release.yml` | tag `v*.*.*` | `release` > `deploy-staging` > `deploy-production` | `release`: `contents: write`, `packages: write`; deploys: `packages: read` |
+| `ci.yml` | manual (`workflow_dispatch`), push a `main`, `develop`, `feature/**`, `release/**`, `hotfix/**`; PR hacia `main` o `develop` | `build-test` > `package` | `contents: read` |
+| `codeql.yml` | manual, PR hacia `main`/`develop`, push a `main`, lunes 06:00 UTC | `analyze` | `security-events: write`, `actions: read`, `contents: read` |
+| `release.yml` | tag `v*.*.*`, o manual sobre un tag existente (`gh workflow run release.yml --ref v1.0.0`) | `release` > `deploy-staging` > `deploy-production` | `release`: `contents: write`, `packages: write`; deploys: `packages: read` |
 
 Un push a una rama con PR abierto dispara `ci.yml` dos veces (por `push` y por `pull_request`); coincide con el ejemplo del material de la cátedra. Las ramas `demo/*` solo disparan `ci.yml` a través del PR.
 
@@ -105,7 +105,7 @@ Endpoints: `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}`, `GET /
 
 ### Hechos que hay que tener claros
 
-- **CodeQL (code scanning) solo corre en repositorios públicos** (o con Code Security, pago). `codeql.yml` tiene `if: github.event.repository.private == false`: en un repo privado el job se omite y PMD queda como análisis estático. Los **required reviewers** de los entornos dependen del plan de la cuenta u organización; en un repo privado sin plan compatible el entorno `production` no pedirá aprobación.
+- **CodeQL (code scanning) y los Required reviewers dependen de que el repositorio sea público** (o de un plan pago). En este repo público CodeQL corre y pasa. `codeql.yml` tiene `if: github.event.repository.private == false`: si alguien hace un fork privado, el job se omite en lugar de fallar y PMD queda como análisis estático.
 - **Los despliegues son simulaciones.** Descargan la imagen publicada y la ejecutan dentro del runner, hacen un smoke test y la eliminan. Lo real: el orden de los jobs, los entornos, la aprobación manual y la verificación de que la imagen publicada arranca.
 - La imagen se publica en `ghcr.io/<owner en minúsculas>/tienda-api`. GHCR rechaza mayúsculas, por eso `release.yml` convierte el owner (`DaronArg` pasa a `daronarg`).
 - El paquete se crea privado la primera vez. Para `docker pull` desde fuera, cambiar su visibilidad en **Packages > Package settings**.
@@ -126,4 +126,4 @@ RUNBOOK.md           guion de la clase
 
 ## Estado de verificación
 
-Local: `./mvnw -B clean verify` en verde (12 tests, cobertura de líneas 96%), imagen Docker probada, `actionlint` sin hallazgos, scripts probados en modo local. Los workflows **todavía no se ejecutaron en GitHub** (la organización tiene Actions deshabilitado para este repo y no admite *required reviewers* en repos privados; ver [RUNBOOK](RUNBOOK.md#pendiente-antes-de-la-primera-clase)).
+Ejecutado en GitHub (6 de octubre de 2026): `CI` verde en unos 100 s (`build-test` 32 s, `package` 58 s), `CodeQL` verde en unos 100 s, `Release` de `v1.0.0` completo (imagen en GHCR, Release con el jar, staging automático, producción tras aprobación por API), rechazo de producción y fallo por tag distinto del pom verificados, tres pasadas completas con `reset.sh` entre una y otra. **Limitación observada:** GitHub no inició ningún workflow por `push`, `pull_request` ni tag en este repositorio; `scripts/demo.sh` lo detecta y los inicia con `workflow_dispatch` (ver [RUNBOOK](RUNBOOK.md)).
