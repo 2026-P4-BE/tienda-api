@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Verify, publish image and create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Temurin 17 with Maven cache
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Check that the Git tag matches the pom.xml version
+        id: meta
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          POM_VERSION=$(./mvnw -q -B help:evaluate -Dexpression=project.version -DforceStdout)
+          if [ "${TAG_VERSION}" != "${POM_VERSION}" ]; then
+            echo "::error title=Tag/version mismatch::Git tag is '${GITHUB_REF_NAME}' but pom.xml version is '${POM_VERSION}'. Update the pom.xml version (or tag the right commit) and try again."
+            exit 1
+          fi
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "version=${POM_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${OWNER}/tienda-api" >> "$GITHUB_OUTPUT"
+          echo "Tag ${GITHUB_REF_NAME} matches pom.xml version ${POM_VERSION}"
+
+      - name: Verify (tests, coverage gate, PMD)
+        run: ./mvnw -B verify
+
+      - name: Build Docker image
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "${IMAGE}:${VERSION}" -t "${IMAGE}:latest" .
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          docker push "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:latest"
+
+      - name: Create GitHub Release with the jar attached
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" "target/tienda-api-${{ steps.meta.outputs.version }}.jar" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag
+
+  deploy-staging:
+    name: Deploy to staging (simulated)
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ${{ needs.release.outputs.image }}
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the published image (the same immutable artifact, never rebuilt)
+        run: docker pull "${IMAGE}:${VERSION}"
+
+      - name: Simulated staging deploy - run the container inside the runner
+        run: |
+          echo "SIMULATION: a real deploy would update a staging server or cluster."
+          echo "Here the container just runs on this runner to prove the image works."
+          docker run -d --name tienda-staging -p 8080:8080 "${IMAGE}:${VERSION}"
+
+      - name: Smoke test staging (health and version)
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              curl -fsS http://localhost:8080/api/version | grep -q "\"version\":\"${VERSION}\""
+              echo "Staging smoke test passed: version ${VERSION} is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Staging smoke test failed" >&2
+          docker logs tienda-staging
+          exit 1
+
+      - name: Remove container
+        if: always()
+        run: docker rm -f tienda-staging
+
+  deploy-production:
+    name: Deploy to production (simulated, manual approval)
+    needs: [release, deploy-staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The manual approval comes from "Required reviewers" configured on the
+    # "production" environment in the repository settings, not from this file.
+    environment:
+      name: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ${{ needs.release.outputs.image }}
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the published image (the same immutable artifact, never rebuilt)
+        run: docker pull "${IMAGE}:${VERSION}"
+
+      - name: Simulated production deploy - run the container inside the runner
+        run: |
+          echo "SIMULATION: a real deploy would update the production server or cluster."
+          echo "Here the container just runs on this runner to prove the image works."
+          docker run -d --name tienda-production -p 8080:8080 "${IMAGE}:${VERSION}"
+
+      - name: Smoke test production (health and version)
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              curl -fsS http://localhost:8080/api/version | grep -q "\"version\":\"${VERSION}\""
+              echo "Production smoke test passed: version ${VERSION} is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Production smoke test failed" >&2
+          docker logs tienda-production
+          exit 1
+
+      - name: Remove container
+        if: always()
+        run: docker rm -f tienda-production

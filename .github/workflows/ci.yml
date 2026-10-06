@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'release/**', 'hotfix/**']
+  pull_request:
+    branches: [main, develop]
+
+# A new push to the same branch/PR cancels the run that is still in progress.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build, test and quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Temurin 17 with Maven cache
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # verify = compile + unit/integration tests + JaCoCo gate (>= 80% lines) + PMD gate.
+      # Any failure stops the pipeline here (fail early).
+      - name: Verify (tests, coverage gate, PMD)
+        run: ./mvnw -B verify
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Build and test summary"
+            echo
+            if ls target/surefire-reports/TEST-*.xml > /dev/null 2>&1; then
+              read -r tests failures errors < <(cat target/surefire-reports/TEST-*.xml | grep -o '<testsuite [^>]*' | awk '
+                {
+                  for (i = 1; i <= NF; i++) {
+                    split($i, kv, "="); gsub(/"/, "", kv[2])
+                    if (kv[1] == "tests") t += kv[2]
+                    if (kv[1] == "failures") f += kv[2]
+                    if (kv[1] == "errors") e += kv[2]
+                  }
+                }
+                END { print t + 0, f + 0, e + 0 }')
+              echo "- Tests run: **${tests}** (failures: ${failures}, errors: ${errors})"
+            else
+              echo "- Tests: no surefire reports found"
+            fi
+            if [ -f target/site/jacoco/jacoco.csv ]; then
+              coverage=$(awk -F, 'NR>1 {missed+=$8; covered+=$9} END {if (missed+covered>0) printf "%.1f", covered*100/(missed+covered); else print "n/a"}' target/site/jacoco/jacoco.csv)
+              echo "- Line coverage: **${coverage}%** (quality gate: 80%)"
+            else
+              echo "- Line coverage: report not generated (an earlier step failed)"
+            fi
+            echo "- Commit: \`${GITHUB_SHA::7}\` on \`${GITHUB_REF_NAME}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test and quality reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports-${{ github.run_number }}
+          path: |
+            target/surefire-reports/
+            target/site/jacoco/
+            target/pmd.xml
+            target/reports/pmd.html
+          if-no-files-found: warn
+          retention-days: 14
+
+  package:
+    name: Package and smoke-test Docker image
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build Docker image (tag = short SHA, nothing is pushed)
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          docker build -t "tienda-api:${SHORT_SHA}" .
+          echo "SHORT_SHA=${SHORT_SHA}" >> "$GITHUB_ENV"
+
+      - name: Run container and smoke-test /actuator/health
+        run: |
+          docker run -d --name tienda-api -p 8080:8080 "tienda-api:${SHORT_SHA}"
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "Health check passed after ${i} attempt(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed" >&2
+          docker logs tienda-api
+          exit 1
+
+      - name: Remove container
+        if: always()
+        run: docker rm -f tienda-api
