@@ -95,11 +95,31 @@ finish_branch() {
     --title "$DEMO_PR_PREFIX $pr_title" \
     --body "Classroom demo created by scripts/demo.sh. Safe to close: scripts/reset.sh removes it." 2>&1 | tail -n 1)"
   ok "Opened PR: $url"
+  ensure_runs "$branch" ci.yml codeql.yml
   echo
   info "Open:   $url"
   info "Actions: https://github.com/$REPO/actions"
   info "Watch:  $watch"
   info "Then:   scripts/reset.sh (back to the initial state)"
+}
+
+# GitHub normally starts the workflows by itself on push / PR / tag. If no run shows up shortly
+# (it was observed on a fresh repository), start them manually so the class is not blocked.
+ensure_runs() {
+  local ref="$1"; shift
+  local wf n
+  for wf in "$@"; do
+    n=0
+    for _ in 1 2 3 4 5 6 7 8; do
+      n=$(gh run list --repo "$REPO" --workflow "$wf" --branch "$ref" --limit 1 --json databaseId --jq length 2>/dev/null)
+      [ "${n:-0}" -gt 0 ] && break
+      sleep 4
+    done
+    if [ "${n:-0}" -eq 0 ]; then
+      warn "No $wf run started by GitHub for $ref; starting it with workflow_dispatch."
+      gh workflow run "$wf" --repo "$REPO" --ref "$ref" > /dev/null 2>&1 || warn "Could not dispatch $wf (is the workflow on that ref?)."
+    fi
+  done
 }
 
 # --- scenarios -------------------------------------------------------------
@@ -168,6 +188,7 @@ scenario_release() {
     return
   fi
   gh_git push -q origin "refs/tags/$tag" || die "Pushing the tag failed. If it says 'workflow scope', run: gh auth refresh -h github.com -s workflow"
+  ensure_runs "$tag" release.yml
   ok "Pushed $tag"
   echo
   info "Actions:  https://github.com/$REPO/actions/workflows/release.yml"
