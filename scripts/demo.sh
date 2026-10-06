@@ -119,7 +119,7 @@ scenario_break_test() {
   local f="src/test/java/ar/edu/utn/frc/tienda/product/ProductServiceTest.java"
   sed -i '/void createSavesNewProduct/,/isEqualTo(5)/ s/isEqualTo(5)/isEqualTo(6)/' "$f"
   finish_branch "$branch" "test: break one assertion (classroom demo)" "break-test: wrong assertion in ProductServiceTest" \
-    "Job 'Build, test and quality gates' red at 'Verify' (expected: <6> but was: <5>); job 'Package' is skipped."
+    "Job 'Build, test and quality gates' red at 'Verify' (expected: 6 but was: 5); job 'Package' is skipped."
 }
 
 scenario_drop_coverage() {
