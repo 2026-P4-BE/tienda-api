@@ -126,4 +126,4 @@ RUNBOOK.md           guion de la clase
 
 ## Estado de verificación
 
-Local: `./mvnw -B clean verify` en verde (12 tests, cobertura de líneas 96%), imagen Docker probada, `actionlint` sin hallazgos, scripts probados en modo local. Los workflows **todavía no se ejecutaron en GitHub** (falta el scope `workflow`; ver la sección final del [RUNBOOK](RUNBOOK.md#pendiente-antes-de-la-primera-clase)).
+Local: `./mvnw -B clean verify` en verde (12 tests, cobertura de líneas 96%), imagen Docker probada, `actionlint` sin hallazgos, scripts probados en modo local. Los workflows **todavía no se ejecutaron en GitHub** (la organización tiene Actions deshabilitado para este repo y no admite *required reviewers* en repos privados; ver [RUNBOOK](RUNBOOK.md#pendiente-antes-de-la-primera-clase)).
