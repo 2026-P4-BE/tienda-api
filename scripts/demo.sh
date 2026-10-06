@@ -36,6 +36,7 @@ REPO="$(detect_repo)"
 ORIG_BRANCH="$(current_branch)"
 BASE_REF="$BASE_BRANCH"
 SWITCHED=0
+RUN_SINCE="$(date -u -d "-30 seconds" +%Y-%m-%dT%H:%M:%SZ)"   # only runs newer than this count as "started by this demo"
 
 restore_branch() {
   if [ "$SWITCHED" = 1 ] && [ "$(current_branch)" != "$ORIG_BRANCH" ]; then
@@ -111,7 +112,7 @@ ensure_runs() {
   for wf in "$@"; do
     n=0
     for _ in 1 2 3 4 5 6 7 8; do
-      n=$(gh run list --repo "$REPO" --workflow "$wf" --branch "$ref" --limit 1 --json databaseId --jq length 2>/dev/null)
+      n=$(gh run list --repo "$REPO" --workflow "$wf" --branch "$ref" --limit 5 --json createdAt --jq "[.[] | select(.createdAt >= \"$RUN_SINCE\")] | length" 2>/dev/null)
       [ "${n:-0}" -gt 0 ] && break
       sleep 4
     done
