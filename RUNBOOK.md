@@ -1,7 +1,7 @@
 # RUNBOOK: dictar la clase de CI/CD con `tienda-api`
 
 Guion para usar de pie frente al curso. Qué es el repositorio y cómo está construido: [README.md](README.md).
-Repositorio: <https://github.com/2026-P4-BE/tienda-api> · Duración total: 45 a 60 minutos.
+Repositorio: <https://github.com/DaronArg/tienda-api> · Duración total: 45 a 60 minutos.
 
 > **Estado de verificación (leer una vez).** Los scripts y los parches de cada demo se probaron en local (los tres fallos se reproducen con el mensaje exacto indicado, `verify` tarda unos 30 s, la imagen arranca y responde `/actuator/health` y `/api/version`). Los workflows pasaron `actionlint`, pero **todavía no se ejecutaron en GitHub**: la organización tiene deshabilitado GitHub Actions para este repositorio y no admite *required reviewers* en repos privados (ver [Pendiente antes de la primera clase](#pendiente-antes-de-la-primera-clase)). Los tiempos de GitHub y lo que dice "qué deberían ver" son **estimados**, no observados. Hacer una pasada completa antes de la clase y corregir este documento con lo real.
 
@@ -168,7 +168,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 1. `scripts/demo.sh release` crea el tag anotado `v1.0.0` sobre `main` y lo empuja (usa la versión del `pom.xml`).
 2. **Actions > Release**: abrir el run. Job `Verify, publish image and create GitHub Release`: mostrar el step `Check that the Git tag matches the pom.xml version`, luego `Verify` y `Push image to GHCR`.
 3. **Releases** (barra lateral del repo): aparece `v1.0.0` con notas generadas y el `.jar` adjunto.
-4. **Packages**: `tienda-api` con las etiquetas `1.0.0` y `latest` (`ghcr.io/2026-p4-be/tienda-api`; el owner va en minúsculas).
+4. **Packages**: `tienda-api` con las etiquetas `1.0.0` y `latest` (`ghcr.io/daronarg/tienda-api`; el owner va en minúsculas).
 5. Volver al run: `Deploy to staging (simulated)` corre solo. Abrir el step `Smoke test staging` (health y versión).
 6. `Deploy to production` queda en **Waiting**. Hacer clic en **Review deployments**, marcar `production` y **Approve and deploy**. Alternativa por API:
    ```bash
@@ -296,7 +296,7 @@ Plan B: dejar un run de `Release` exitoso en el historial y anotar acá su URL: 
 
 ## Pendiente antes de la primera clase
 
-1. Un administrador de la organización `2026-P4-BE` debe habilitar GitHub Actions para el repositorio `tienda-api` (Organization settings > Actions > General > Policies). Hoy `gh api repos/{owner}/{repo}/actions/permissions` devuelve `enabled: false` y la API responde `Actions is disabled on this repository by the organization`; no hay runs.
+1. Un administrador de la organización `DaronArg` debe habilitar GitHub Actions para el repositorio `tienda-api` (Organization settings > Actions > General > Policies). Hoy `gh api repos/{owner}/{repo}/actions/permissions` devuelve `enabled: false` y la API responde `Actions is disabled on this repository by the organization`; no hay runs.
 2. Resolver los *required reviewers*: `PUT .../environments/production` con reviewers devuelve HTTP 422 ("billing plan"). Opciones: revisar el plan de facturación de la organización, o hacer público el repo (`gh repo edit --visibility public --accept-visibility-change-consequences`), lo que además activa CodeQL.
 3. `scripts/setup-github.sh` (idempotente: vuelve a configurar entornos y reviewer) y `scripts/doctor.sh`.
 4. Correr las demos 1 a 6 una vez, `scripts/reset.sh`, y reemplazar en este documento los tiempos estimados por los medidos y la URL del run de plan B.

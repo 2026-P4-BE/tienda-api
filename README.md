@@ -1,7 +1,7 @@
 # tienda-api: CI/CD con GitHub Actions
 
-[![CI](https://github.com/2026-P4-BE/tienda-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/2026-P4-BE/tienda-api/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/2026-P4-BE/tienda-api/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/2026-P4-BE/tienda-api/actions/workflows/codeql.yml)
+[![CI](https://github.com/DaronArg/tienda-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DaronArg/tienda-api/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/DaronArg/tienda-api/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/DaronArg/tienda-api/actions/workflows/codeql.yml)
 
 > Cada cambio recibe retroalimentación automática y rápida, `main` está siempre en verde, y un tag de Git alcanza para producir un artefacto versionado, trazable y desplegable.
 
@@ -13,7 +13,7 @@ Caso práctico de la Unidad 5 (CI/CD) de Programación IV – Back End (UTN FRC)
 ## Camino rápido
 
 ```bash
-scripts/setup-github.sh     # una sola vez: repo (privado por defecto, `--public` opcional), ramas y entornos
+scripts/setup-github.sh     # una sola vez: repo público, ramas y entornos
 scripts/doctor.sh           # verificación previa a cada clase
 scripts/demo.sh green-pr    # una demo (ver RUNBOOK)
 scripts/reset.sh            # vuelta al estado inicial, local y en GitHub
@@ -61,7 +61,7 @@ Versiones de las acciones (el material de la cátedra usa `@v4`; acá se usan la
 
 | Script | Qué hace |
 |--------|----------|
-| `scripts/setup-github.sh [owner/nombre]` | Crea el repo (privado, `2026-P4-BE/tienda-api` por defecto; `--public` opcional) si no existe, empuja `main` y `develop`, crea los entornos `staging` y `production` con el usuario actual como reviewer. Idempotente |
+| `scripts/setup-github.sh [owner/nombre] [--private]` | Crea el repo (público, `<tu usuario>/tienda-api` por defecto) si no existe, empuja `main` y `develop`, crea los entornos `staging` y `production` con el usuario actual como reviewer. Idempotente |
 | `scripts/doctor.sh` | Chequeo previo en segundos: sesión `gh` y scope `workflow`, visibilidad del repo, ramas, Actions, entornos y reviewer, árbol local limpio en `main`, sin restos de demos, último CI en verde |
 | `scripts/demo.sh <escenario>` | `green-pr`, `break-test`, `drop-coverage`, `pmd-violation`, `release [versión]`, `status`. Cada uno aplica un parche conocido, empuja y abre el PR (o el tag). Se puede ejecutar dos veces: indica qué ya existe. `--no-push` deja todo solo en local |
 | `scripts/reset.sh [--dry-run] [--runs]` | Vuelve al estado inicial, local y remoto. Ver reglas abajo |
@@ -107,7 +107,7 @@ Endpoints: `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}`, `GET /
 
 - **CodeQL (code scanning) solo corre en repositorios públicos** (o con Code Security, pago). `codeql.yml` tiene `if: github.event.repository.private == false`: en un repo privado el job se omite y PMD queda como análisis estático. Los **required reviewers** de los entornos dependen del plan de la cuenta u organización; en un repo privado sin plan compatible el entorno `production` no pedirá aprobación.
 - **Los despliegues son simulaciones.** Descargan la imagen publicada y la ejecutan dentro del runner, hacen un smoke test y la eliminan. Lo real: el orden de los jobs, los entornos, la aprobación manual y la verificación de que la imagen publicada arranca.
-- La imagen se publica en `ghcr.io/<owner en minúsculas>/tienda-api`. GHCR rechaza mayúsculas, por eso `release.yml` convierte el owner (`2026-P4-BE` pasa a `2026-p4-be`).
+- La imagen se publica en `ghcr.io/<owner en minúsculas>/tienda-api`. GHCR rechaza mayúsculas, por eso `release.yml` convierte el owner (`DaronArg` pasa a `daronarg`).
 - El paquete se crea privado la primera vez. Para `docker pull` desde fuera, cambiar su visibilidad en **Packages > Package settings**.
 - Si el entorno `production` no existe, GitHub lo crea solo al primer despliegue **sin** reviewers: por eso `doctor.sh` lo verifica.
 
