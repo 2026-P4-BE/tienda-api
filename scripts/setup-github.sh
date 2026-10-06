@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # One-time GitHub setup for a fresh clone or fork. Idempotent.
 #
-#   scripts/setup-github.sh [owner/name]    default: <logged-in user>/tienda-api
+#   scripts/setup-github.sh [owner/name] [--public]    default: 2026-P4-BE/tienda-api, private
 #
-# 1. creates the PUBLIC repository if it does not exist (public: CodeQL and required
-#    reviewers are not available on private repos of free accounts)
+# 1. creates the repository if it does not exist (private unless --public; CodeQL only runs on public repos)
 # 2. pushes main and develop
 # 3. creates the 'staging' and 'production' environments; the logged-in user becomes
 #    required reviewer of 'production' (self-review allowed, so the teacher can approve their own demo)
@@ -14,6 +13,17 @@
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+VISIBILITY="--private"
+REPO=""
+for a in "$@"; do
+  case "$a" in
+    --public) VISIBILITY="--public" ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    */*) REPO="$a" ;;
+    *) die "Unknown argument: $a" ;;
+  esac
+done
+
 require_cmd git
 require_cmd gh
 gh auth status > /dev/null 2>&1 || die "gh is not logged in. Run: gh auth login"
@@ -21,13 +31,13 @@ gh auth status 2>&1 | grep -q "workflow" || warn "The gh token lacks the 'workfl
 
 LOGIN="$(gh api user --jq .login)"
 USER_ID="$(gh api user --jq .id)"
-REPO="${1:-$LOGIN/tienda-api}"
+REPO="${REPO:-2026-P4-BE/tienda-api}"
 
 if gh api "repos/$REPO" --silent > /dev/null 2>&1; then
   info "Repository $REPO already exists: reusing it."
 else
-  gh repo create "$REPO" --public --description "Teaching repo: Spring Boot products API with a full CI/CD pipeline on GitHub Actions (UTN Programacion IV, Unit 5)" > /dev/null
-  ok "Created public repository $REPO"
+  gh repo create "$REPO" "$VISIBILITY" --description "Teaching repo: Spring Boot products API with a full CI/CD pipeline on GitHub Actions (UTN Programacion IV, Unit 5)" > /dev/null
+  ok "Created repository $REPO ($VISIBILITY)"
 fi
 
 if git remote get-url origin > /dev/null 2>&1; then

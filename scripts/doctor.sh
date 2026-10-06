@@ -35,7 +35,7 @@ fi
 REPO="$(detect_repo)"
 VIS="$(gh api "repos/$REPO" --jq .visibility 2>/dev/null)"
 check "repository $REPO is reachable" "$([ -n "$VIS" ] && echo 0 || echo 1)" "check the origin URL and your network"
-check "repository is public (CodeQL and required reviewers need it)" "$([ "$VIS" = public ] && echo 0 || echo 1)" "Settings > General > Change visibility"
+if [ "$VIS" = public ]; then ok "repository is public (CodeQL code scanning runs)"; else warn "repository is $VIS: the CodeQL job is skipped (SAST then relies on PMD)"; fi
 check "branch main exists on GitHub" "$(remote_branch_exists "$REPO" main && echo 0 || echo 1)" "scripts/setup-github.sh"
 check "branch develop exists on GitHub" "$(remote_branch_exists "$REPO" develop && echo 0 || echo 1)" "scripts/setup-github.sh"
 

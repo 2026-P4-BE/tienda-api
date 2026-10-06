@@ -18,6 +18,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze Java
+    # Code scanning needs a public repository (or the paid Code Security add-on).
+    # On a private repository the job is skipped instead of failing at the upload step.
+    if: ${{ github.event.repository.private == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
