@@ -48,7 +48,7 @@ REMOTE_DEMO_BRANCHES=()
 for prefix in "heads/demo/" "heads/feature/demo-"; do
   while IFS= read -r ref; do
     [ -n "$ref" ] && REMOTE_DEMO_BRANCHES+=("${ref#refs/heads/}")
-  done < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null)
+  done < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null | grep '^refs/')
 done
 
 REMOTE_DEMO_TAGS=()
@@ -64,7 +64,7 @@ while IFS=$'\t' read -r ref type sha; do
     "$DEMO_TAG_MARKER"*) REMOTE_DEMO_TAGS+=("$tag") ;;
     *) REMOTE_FOREIGN_TAGS+=("$tag") ;;
   esac
-done < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[] | [.ref, .object.type, .object.sha] | @tsv' 2>/dev/null)
+done < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[] | [.ref, .object.type, .object.sha] | @tsv' 2>/dev/null | grep '^refs/')
 
 LOCAL_DEMO_TAGS=()
 LOCAL_FOREIGN_TAGS=()
@@ -246,7 +246,7 @@ else
   R_BR=()
   for prefix in "heads/demo/" "heads/feature/demo-"; do
     while IFS= read -r ref; do [ -n "$ref" ] && R_BR+=("${ref#refs/heads/}"); done \
-      < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null)
+      < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null | grep '^refs/')
   done
   check_none "remote demo branches" "${R_BR[@]}"
 
@@ -264,7 +264,7 @@ else
     [ -n "$ref" ] || continue
     m=""; [ "$type" = "tag" ] && m="$(gh api "repos/$REPO/git/tags/$sha" --jq .message 2>/dev/null | head -n 1)"
     case "$m" in "$DEMO_TAG_MARKER"*) TG+=("${ref#refs/tags/}") ;; esac
-  done < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[] | [.ref, .object.type, .object.sha] | @tsv' 2>/dev/null)
+  done < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[] | [.ref, .object.type, .object.sha] | @tsv' 2>/dev/null | grep '^refs/')
   check_none "remote demo tags" "${TG[@]}"
 
   LT=()

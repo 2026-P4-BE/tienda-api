@@ -62,12 +62,12 @@ fi
 LEFT=()
 for prefix in "heads/demo/" "heads/feature/demo-"; do
   while IFS= read -r ref; do [ -n "$ref" ] && LEFT+=("branch ${ref#refs/heads/}"); done \
-    < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null)
+    < <(gh api "repos/$REPO/git/matching-refs/$prefix" --jq '.[].ref' 2>/dev/null | grep '^refs/')
 done
 while IFS= read -r l; do [ -n "$l" ] && LEFT+=("PR $l"); done \
   < <(gh pr list --repo "$REPO" --state open --json number --jq '.[] | "#\(.number)"' 2>/dev/null)
 while IFS= read -r l; do [ -n "$l" ] && LEFT+=("tag ${l#refs/tags/}"); done \
-  < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[].ref' 2>/dev/null)
+  < <(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[].ref' 2>/dev/null | grep '^refs/')
 while IFS= read -r l; do [ -n "$l" ] && LEFT+=("release $l"); done \
   < <(gh release list --repo "$REPO" --json tagName --jq '.[].tagName' 2>/dev/null)
 LOCAL_LEFT="$(git branch --list 'demo/*' 'feature/demo-*' | tr -d ' *\n')"

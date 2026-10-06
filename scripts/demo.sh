@@ -189,7 +189,7 @@ scenario_status() {
   info "Demo branches (remote):"
   local any=0 r
   for g in "heads/demo/" "heads/feature/demo-"; do
-    for r in $(gh api "repos/$REPO/git/matching-refs/$g" --jq '.[].ref' 2>/dev/null); do
+    for r in $(gh api "repos/$REPO/git/matching-refs/$g" --jq '.[].ref' 2>/dev/null | grep '^refs/'); do
       info "  ${r#refs/heads/}"; any=1
     done
   done
@@ -201,7 +201,7 @@ scenario_status() {
   echo
   info "Tags:"
   any=0
-  for r in $(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[].ref' 2>/dev/null); do
+  for r in $(gh api "repos/$REPO/git/matching-refs/tags/" --jq '.[].ref' 2>/dev/null | grep '^refs/'); do
     info "  ${r#refs/tags/}"; any=1
   done
   [ "$any" = 1 ] || info "  (none)"
