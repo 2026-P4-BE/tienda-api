@@ -1,6 +1,8 @@
 name: Release
 
 on:
+  # Manual fallback: gh workflow run release.yml --ref v1.0.0 (the ref must be an existing tag)
+  workflow_dispatch:
   push:
     tags: ['v*.*.*']
 
@@ -36,6 +38,10 @@ jobs:
       - name: Check that the Git tag matches the pom.xml version
         id: meta
         run: |
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "::error title=Not a tag::Release must run on a tag (v1.2.3), not on '${GITHUB_REF_NAME}'. Use: gh workflow run release.yml --ref v1.2.3"
+            exit 1
+          fi
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           POM_VERSION=$(./mvnw -q -B help:evaluate -Dexpression=project.version -DforceStdout | tail -n 1)
           if [ "${TAG_VERSION}" != "${POM_VERSION}" ]; then
