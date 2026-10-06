@@ -37,7 +37,7 @@ jobs:
         id: meta
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          POM_VERSION=$(./mvnw -q -B help:evaluate -Dexpression=project.version -DforceStdout)
+          POM_VERSION=$(./mvnw -q -B help:evaluate -Dexpression=project.version -DforceStdout | tail -n 1)
           if [ "${TAG_VERSION}" != "${POM_VERSION}" ]; then
             echo "::error title=Tag/version mismatch::Git tag is '${GITHUB_REF_NAME}' but pom.xml version is '${POM_VERSION}'. Update the pom.xml version (or tag the right commit) and try again."
             exit 1
