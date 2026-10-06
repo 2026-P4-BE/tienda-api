@@ -1,9 +1,9 @@
 # RUNBOOK: dictar la clase de CI/CD con `tienda-api`
 
 Guion para usar de pie frente al curso. Qué es el repositorio y cómo está construido: [README.md](README.md).
-Repositorio: <https://github.com/DaronArg/tienda-api> · Duración total: 45 a 60 minutos.
+Repositorio: <https://github.com/2026-P4-BE/tienda-api> · Duración total: 45 a 60 minutos.
 
-> **Estado de verificación (leer una vez).** Los scripts y los parches de cada demo se probaron en local (los tres fallos se reproducen con el mensaje exacto indicado, `verify` tarda unos 30 s, la imagen arranca y responde `/actuator/health` y `/api/version`). Los workflows pasaron `actionlint`, pero **todavía no se ejecutaron en GitHub**: el token de `gh` no tiene el scope `workflow` y el push fue rechazado (ver sección [Pendiente antes de la primera clase](#pendiente-antes-de-la-primera-clase)). Los tiempos de GitHub y lo que dice "qué deberían ver" son **estimados**, no observados. Hacer una pasada completa antes de la clase y corregir este documento con lo real.
+> **Estado de verificación (leer una vez).** Los scripts y los parches de cada demo se probaron en local (los tres fallos se reproducen con el mensaje exacto indicado, `verify` tarda unos 30 s, la imagen arranca y responde `/actuator/health` y `/api/version`). Los workflows pasaron `actionlint`, pero **todavía no se ejecutaron en GitHub**: la organización tiene deshabilitado GitHub Actions para este repositorio y no admite *required reviewers* en repos privados (ver [Pendiente antes de la primera clase](#pendiente-antes-de-la-primera-clase)). Los tiempos de GitHub y lo que dice "qué deberían ver" son **estimados**, no observados. Hacer una pasada completa antes de la clase y corregir este documento con lo real.
 
 ## Antes de la clase
 
@@ -14,11 +14,11 @@ scripts/doctor.sh
 Todo debe estar en `[ OK ]`. Si algo falla, el script imprime el comando que lo arregla.
 
 - [ ] `gh` con sesión iniciada y scope `workflow`.
-- [ ] Repositorio **público**, con `main` y `develop` en GitHub.
+- [ ] Repositorio con `main` y `develop` en GitHub y **Actions habilitado** para el repo. Es **privado**: CodeQL se omite (ver [Límites](#límites-honestos)).
 - [ ] Entornos `staging` y `production`; `production` con un reviewer (vos).
 - [ ] Árbol local limpio y en `main`; sin ramas, PR, tags ni releases de demos anteriores (`scripts/reset.sh` los borra).
 - [ ] Último CI en `main` en verde: es el **plan B** si Internet o GitHub fallan.
-- [ ] Pestañas abiertas: Actions, Pull requests, Security > Code scanning, Releases, Packages, Settings > Environments.
+- [ ] Pestañas abiertas: Actions, Pull requests, Releases, Packages, Settings > Environments.
 
 Un solo comando para empezar de cero en cualquier momento: `scripts/reset.sh`.
 
@@ -50,12 +50,12 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 
 **Pasos**
 1. `scripts/demo.sh green-pr` crea `feature/demo-green-pr` desde `develop`, empuja un cambio de documentación y abre un PR hacia `develop`. Abrir la URL que imprime.
-2. En el PR, pestaña **Checks**: aparecen `CI` y `CodeQL`.
+2. En el PR, pestaña **Checks**: aparece `CI`. El workflow `CodeQL` figura como **Skipped** porque el repositorio es privado (ver Límites).
 3. Pestaña **Actions** > `CI`: abrir el run. Mostrar los jobs `Build, test and quality gates` y, después, `Package and smoke-test Docker image`.
 4. En el run, **Summary**: la tabla de tests y cobertura. Al final, **Artifacts**: `reports-<n>-<intento>` (Surefire, JaCoCo, PMD).
-5. **Security > Code scanning**: resultado de CodeQL (sin alertas).
+5. (Solo si el repo es público) **Security > Code scanning**: resultado de CodeQL.
 
-**Qué deberían ver** (esperado): dos runs de `CI` para la misma rama (uno por `push` y otro por `pull_request`), `CodeQL` en verde, summary con `Tests run: 12 (failures: 0, errors: 0)` y `Line coverage: 96.1%`.
+**Qué deberían ver** (esperado): dos runs de `CI` para la misma rama (uno por `push` y otro por `pull_request`), `CodeQL` omitido (repo privado), summary con `Tests run: 12 (failures: 0, errors: 0)` y `Line coverage: 96.1%`.
 
 **Qué remarcar.** El push y el PR disparan el workflow cada uno; es esperado (el material de la cátedra usa `on: [push, pull_request]`). El job `package` solo arranca si `build-test` pasó (`needs`).
 
@@ -133,7 +133,7 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 **Qué explicar antes**
 - El análisis estático (SAST) examina el código **sin ejecutarlo**; puede bloquear el build.
 - Herramientas del material: SonarQube, CodeQL, OWASP Dependency Check, PMD / estilo de código.
-- Acá hay dos: **PMD** (estilo y malas prácticas, dentro de `verify`) y **CodeQL** (vulnerabilidades, workflow aparte).
+- Acá hay dos: **PMD** (estilo y malas prácticas, dentro de `verify`, siempre activo) y **CodeQL** (vulnerabilidades, workflow aparte). CodeQL solo corre si el repositorio es público; en este repo privado PMD es el análisis estático en acción.
 
 **Pasos**
 1. `scripts/demo.sh pmd-violation` agrega `System.out.println("listing");` en `ProductService.findAll()` y abre el PR.
@@ -168,13 +168,13 @@ Tiempos de cada workflow en un runner de GitHub (estimados, sin medir): `CI` 3 a
 1. `scripts/demo.sh release` crea el tag anotado `v1.0.0` sobre `main` y lo empuja (usa la versión del `pom.xml`).
 2. **Actions > Release**: abrir el run. Job `Verify, publish image and create GitHub Release`: mostrar el step `Check that the Git tag matches the pom.xml version`, luego `Verify` y `Push image to GHCR`.
 3. **Releases** (barra lateral del repo): aparece `v1.0.0` con notas generadas y el `.jar` adjunto.
-4. **Packages**: `tienda-api` con las etiquetas `1.0.0` y `latest` (`ghcr.io/daronarg/tienda-api`; el owner va en minúsculas).
+4. **Packages**: `tienda-api` con las etiquetas `1.0.0` y `latest` (`ghcr.io/2026-p4-be/tienda-api`; el owner va en minúsculas).
 5. Volver al run: `Deploy to staging (simulated)` corre solo. Abrir el step `Smoke test staging` (health y versión).
 6. `Deploy to production` queda en **Waiting**. Hacer clic en **Review deployments**, marcar `production` y **Approve and deploy**. Alternativa por API:
    ```bash
    RUN=$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-   ENV=$(gh api repos/DaronArg/tienda-api/actions/runs/$RUN/pending_deployments --jq '.[0].environment.id')
-   gh api -X POST repos/DaronArg/tienda-api/actions/runs/$RUN/pending_deployments \
+   ENV=$(gh api repos/{owner}/{repo}/actions/runs/$RUN/pending_deployments --jq '.[0].environment.id')
+   gh api -X POST repos/{owner}/{repo}/actions/runs/$RUN/pending_deployments \
      -F "environment_ids[]=$ENV" -f state=approved -f comment="approved in class"
    ```
 7. Opcional, para mostrar el rechazo: repetir con `-f state=rejected`. El job de producción termina en rojo y nada se despliega.
@@ -263,7 +263,7 @@ Versión actual `1.0.0` (`MAJOR.MINOR.PATCH`: cambio incompatible / funcionalida
 - **Delivery**: el artefacto siempre queda listo; una persona decide producción. Es lo que hace este repo: `deploy-production` espera al reviewer del entorno `production`.
 - **Deployment**: automático hasta producción, sin pausa humana.
 
-Para pasar a Deployment **no se toca el YAML**: en **Settings > Environments > production** desactivar **Required reviewers**. Verificarlo con `gh api repos/DaronArg/tienda-api/environments/production`. Para volver: `scripts/setup-github.sh` lo reconfigura. Advertencia para la clase: Deployment exige muy buena cobertura y un smoke test confiable.
+Para pasar a Deployment **no se toca el YAML**: en **Settings > Environments > production** desactivar **Required reviewers**. Verificarlo con `gh api repos/{owner}/{repo}/environments/production`. Para volver: `scripts/setup-github.sh` lo reconfigura. Advertencia para la clase: Deployment exige muy buena cobertura y un smoke test confiable.
 
 ## Volver al estado inicial
 
@@ -289,13 +289,14 @@ Plan B: dejar un run de `Release` exitoso en el historial y anotar acá su URL: 
 ## Límites honestos
 
 - Los deploys son **simulaciones**: la imagen corre dentro del runner y se elimina. No hay servidor ni clúster.
-- CodeQL y Required reviewers solo funcionan gratis en repos **públicos**; en uno privado gratuito CodeQL falla y `production` no pedirá aprobación.
+- **CodeQL (SAST) solo corre si el repositorio es público** (o con el add-on pago Code Security). En este repo privado el job se omite y PMD cubre el análisis estático. Para mostrarlo en vivo: `gh repo edit --visibility public --accept-visibility-change-consequences`.
+- Los *required reviewers* de `production` dependen del plan de la organización: en esta organización GitHub rechazó crearlos en un repo privado (HTTP 422, "billing plan"). Sin reviewers, `deploy-production` corre sin esperar y el demo es Continuous Deployment, no Delivery.
 - La primera vez que se publica la imagen el paquete es **privado**. Los jobs de deploy lo leen con `GITHUB_TOKEN` (permiso `packages: read`); para hacer `docker pull` desde tu máquina hay que cambiar su visibilidad.
 - El push y el PR disparan `CI` dos veces; es esperado.
 
 ## Pendiente antes de la primera clase
 
-1. `gh auth refresh -h github.com -s workflow` (requiere navegador).
-2. `scripts/setup-github.sh` (empuja `main` y `develop`; el repositorio y los entornos ya existen).
-3. Esperar el `CI` de `main` en verde, correr las demos 1 a 6 una vez, `scripts/reset.sh` y `scripts/doctor.sh`.
-4. Reemplazar en este documento los tiempos estimados por los medidos y completar la URL del run de plan B.
+1. Un administrador de la organización `2026-P4-BE` debe habilitar GitHub Actions para el repositorio `tienda-api` (Organization settings > Actions > General > Policies). Hoy `gh api repos/{owner}/{repo}/actions/permissions` devuelve `enabled: false` y la API responde `Actions is disabled on this repository by the organization`; no hay runs.
+2. Resolver los *required reviewers*: `PUT .../environments/production` con reviewers devuelve HTTP 422 ("billing plan"). Opciones: revisar el plan de facturación de la organización, o hacer público el repo (`gh repo edit --visibility public --accept-visibility-change-consequences`), lo que además activa CodeQL.
+3. `scripts/setup-github.sh` (idempotente: vuelve a configurar entornos y reviewer) y `scripts/doctor.sh`.
+4. Correr las demos 1 a 6 una vez, `scripts/reset.sh`, y reemplazar en este documento los tiempos estimados por los medidos y la URL del run de plan B.
